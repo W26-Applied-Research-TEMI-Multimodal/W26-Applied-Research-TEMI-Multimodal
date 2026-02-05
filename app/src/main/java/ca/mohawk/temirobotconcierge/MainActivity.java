@@ -1,24 +1,30 @@
 package ca.mohawk.temirobotconcierge;
 
 import android.os.Bundle;
+import android.util.Log;
 
-import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
+import com.robotemi.sdk.Robot;
+
 
 public class MainActivity extends AppCompatActivity {
+    private Robot robot;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
-            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
-            return insets;
-        });
+
+        initTemiSdk();
+    }
+
+    private void initTemiSdk() {
+        try {
+            robot = Robot.getInstance();
+            Log.d("TEMI", "Temi SDK linked");
+        } catch (Throwable t) {
+            robot = null;
+            Log.d("TEMI", "Temi SDK not available on this device.");
+        }
     }
 }
