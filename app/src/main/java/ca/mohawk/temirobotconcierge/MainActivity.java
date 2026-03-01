@@ -16,11 +16,7 @@ import ca.mohawk.temirobotconcierge.llm.GeminiLLMService;
 
 import java.util.List;
 
-/**
- * Main Activity - Map Selection Screen
- * 
- * This is the launcher activity for the TEMI tour app.
- * 
+/** Main Activity - Displays available maps and allows user to select one
  * Flow:
  * 1. Get all available maps via robot.getMapList()
  * 2. Display maps as buttons
@@ -188,7 +184,6 @@ public class MainActivity extends AppCompatActivity implements OnLoadMapStatusCh
             case OnLoadMapStatusChangedListener.COMPLETE:
                 Log.d(TAG, "Map loaded successfully");
                 if (pendingMapId != null) {
-                    // Map is loaded, now go to location selection
                     launchLocationSelector();
                 }
                 break;
