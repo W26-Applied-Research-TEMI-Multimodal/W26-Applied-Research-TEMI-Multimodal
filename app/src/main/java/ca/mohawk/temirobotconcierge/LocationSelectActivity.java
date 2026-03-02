@@ -10,6 +10,9 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.robotemi.sdk.Robot;
 
+import ca.mohawk.temirobotconcierge.poi.Location;
+import ca.mohawk.temirobotconcierge.poi.LocationProvider;
+
 import java.util.List;
 
 /**
@@ -25,6 +28,7 @@ public class LocationSelectActivity extends AppCompatActivity {
     private static final String TAG = "LocationSelectActivity";
     
     private Robot robot;
+    private LocationProvider locationProvider;
     private LinearLayout locationsContainer;
     
     @Override
@@ -41,6 +45,16 @@ public class LocationSelectActivity extends AppCompatActivity {
         } catch (Exception e) {
             Log.e(TAG, "Failed to get Robot instance: " + e.getMessage());
             Toast.makeText(this, "Robot not available", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+        
+        // Initialize LocationProvider to access location metadata from JSON
+        try {
+            locationProvider = new LocationProvider(this);
+            Log.d(TAG, "LocationProvider initialized");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to initialize LocationProvider: " + e.getMessage());
             finish();
             return;
         }
@@ -81,30 +95,46 @@ public class LocationSelectActivity extends AppCompatActivity {
     
     /**
      * Create a button for a location
-     * When tapped, robot navigates to that location
+     * When tapped, robot navigates to that location and sends metadata to Gemini
      */
     private void createLocationButton(String locationName) {
+        // Look up enriched location data from JSON
+        Location locationData = locationProvider.getLocation(locationName);
+        
+        // Use display name if available, otherwise fall back to location name
+        String displayName = (locationData != null) ? locationData.getDisplayName() : locationName;
+        
         Button button = new Button(this);
-        button.setText(locationName);
+        button.setText(displayName);
         button.setLayoutParams(new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
         ));
         button.setPadding(16, 16, 16, 16);
         
-        // When tapped, navigate robot to this location
+        // Store the Location object as tag for later use when building Gemini prompt
+        button.setTag(locationData);
+        
+        // When clicked, navigate robot to this location and prepare for Gemini
         button.setOnClickListener(v -> {
             Log.d(TAG, "User selected location: " + locationName);
+            
+            // Get the Location object with all metadata
+            Location selectedLocation = (Location) button.getTag();
+            if (selectedLocation != null) {
+                Log.d(TAG, "Location metadata: " + selectedLocation);
+            }
             
             // Tell robot to go to this location
             try {
                 robot.goTo(locationName);
                 Log.d(TAG, "Robot navigating to: " + locationName);
-                Toast.makeText(this, "Navigating to " + locationName, Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Navigating to " + displayName, Toast.LENGTH_SHORT).show();
                 
-                // TODO: Get location coordinates from TEMI map data
-                // Then call handleLocationArrival() to send to Gemini
-                // locationDataHandler.createLocationData(locationName, x, y);
+                // TODO: Use selectedLocation metadata to build Gemini prompt
+                // Build prompt with: displayName, description, wing, temiLocationName
+                // Send prompt to Gemini API
+                // Speak response via robot.speak()
                 
             } catch (Exception e) {
                 Log.e(TAG, "Error navigating to location: " + e.getMessage());
