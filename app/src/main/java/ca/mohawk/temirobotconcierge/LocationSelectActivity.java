@@ -9,6 +9,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.robotemi.sdk.Robot;
+import com.robotemi.sdk.TtsRequest;
 
 import ca.mohawk.temirobotconcierge.poi.Location;
 import ca.mohawk.temirobotconcierge.poi.LocationProvider;
@@ -115,7 +116,7 @@ public class LocationSelectActivity extends AppCompatActivity {
         Location locationData = locationProvider.getLocation(locationName);
         
         // Use display name if available, otherwise fall back to location name
-        String displayName = (locationData != null) ? locationData.getDisplayName() : locationName;
+        String displayName = (locationData != null) ? locationData.displayName : locationName;
         
         Button button = new Button(this);
         button.setText(displayName);
@@ -156,7 +157,7 @@ public class LocationSelectActivity extends AppCompatActivity {
                 public void onSuccess(String response) {
                     Log.d(TAG, "Gemini response received: " + response);
                     try {
-                        robot.speak(response);
+                        robot.speak(TtsRequest.create(response));
                         Log.d(TAG, "Robot speaking tour guide");
                     } catch (Exception e) {
                         Log.e(TAG, "Error making robot speak: " + e.getMessage());
@@ -183,14 +184,14 @@ public class LocationSelectActivity extends AppCompatActivity {
             return "Generate a brief tour guide introduction for a campus location.";
         }
         
-        String prompt = "The user is now visiting: " + location.getDisplayName();
+        String prompt = "The user is now visiting: " + location.displayName;
         
-        if (location.getWing() != null && !location.getWing().isEmpty()) {
-            prompt += " (located in " + location.getWing() + ")";
+        if (location.wing != null && !location.wing.isEmpty()) {
+            prompt += " (located in " + location.wing + ")";
         }
         
-        if (location.getDescription() != null && !location.getDescription().isEmpty()) {
-            prompt += ". " + location.getDescription();
+        if (location.description != null && !location.description.isEmpty()) {
+            prompt += ". " + location.description;
         }
         
         prompt += " Provide a brief, welcoming introduction to the specific location for the visitor using only the location information provided.";
