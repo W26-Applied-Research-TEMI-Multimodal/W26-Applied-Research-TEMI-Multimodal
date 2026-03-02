@@ -12,6 +12,7 @@ import com.robotemi.sdk.Robot;
 
 import ca.mohawk.temirobotconcierge.poi.Location;
 import ca.mohawk.temirobotconcierge.poi.LocationProvider;
+import ca.mohawk.temirobotconcierge.llm.GeminiLLMService;
 
 import java.util.List;
 
@@ -29,6 +30,7 @@ public class LocationSelectActivity extends AppCompatActivity {
     
     private Robot robot;
     private LocationProvider locationProvider;
+    private GeminiLLMService geminiService;
     private LinearLayout locationsContainer;
     
     @Override
@@ -55,6 +57,17 @@ public class LocationSelectActivity extends AppCompatActivity {
             Log.d(TAG, "LocationProvider initialized");
         } catch (Exception e) {
             Log.e(TAG, "Failed to initialize LocationProvider: " + e.getMessage());
+            finish();
+            return;
+        }
+        
+        // Initialize Gemini LLM service
+        try {
+            geminiService = new GeminiLLMService();
+            Log.d(TAG, "GeminiLLMService initialized");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to initialize GeminiLLMService: " + e.getMessage());
+            Toast.makeText(this, "Error initializing LLM service", Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
@@ -121,27 +134,67 @@ public class LocationSelectActivity extends AppCompatActivity {
             
             // Get the Location object with all metadata
             Location selectedLocation = (Location) button.getTag();
-            if (selectedLocation != null) {
-                Log.d(TAG, "Location metadata: " + selectedLocation);
-            }
             
-            // Tell robot to go to this location
+            // Tell robot to go to this location immediately
             try {
                 robot.goTo(locationName);
                 Log.d(TAG, "Robot navigating to: " + locationName);
                 Toast.makeText(this, "Navigating to " + displayName, Toast.LENGTH_SHORT).show();
-                
-                // TODO: Use selectedLocation metadata to build Gemini prompt
-                // Build prompt with: displayName, description, wing, temiLocationName
-                // Send prompt to Gemini API
-                // Speak response via robot.speak()
-                
             } catch (Exception e) {
                 Log.e(TAG, "Error navigating to location: " + e.getMessage());
                 Toast.makeText(this, "Error navigating: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                return;
             }
+            
+            // Build prompt from location metadata
+            String prompt = buildTourGuidePrompt(selectedLocation);
+            Log.d(TAG, "Built prompt: " + prompt);
+            
+            // Send prompt to Gemini API (runs in background thread)
+            geminiService.generateTourGuide(prompt, new GeminiLLMService.ResponseCallback() {
+                @Override
+                public void onSuccess(String response) {
+                    Log.d(TAG, "Gemini response received: " + response);
+                    try {
+                        robot.speak(response);
+                        Log.d(TAG, "Robot speaking tour guide");
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error making robot speak: " + e.getMessage());
+                    }
+                }
+                
+                @Override
+                public void onError(String error) {
+                    Log.e(TAG, "Gemini API error: " + error);
+                    Toast.makeText(LocationSelectActivity.this, "Error generating response: " + error, Toast.LENGTH_SHORT).show();
+                }
+            });
         });
         
         locationsContainer.addView(button);
+    }
+    
+    /**
+     * Build a tour guide prompt from location metadata
+     * Uses location displayName, description, and wing to create context for Gemini
+     */
+    private String buildTourGuidePrompt(Location location) {
+        if (location == null) {
+            return "Generate a brief tour guide introduction for a campus location.";
+        }
+        
+        String prompt = "The user is now visiting: " + location.getDisplayName();
+        
+        if (location.getWing() != null && !location.getWing().isEmpty()) {
+            prompt += " (located in " + location.getWing() + ")";
+        }
+        
+        if (location.getDescription() != null && !location.getDescription().isEmpty()) {
+            prompt += ". " + location.getDescription();
+        }
+        
+        prompt += " Provide a brief, welcoming introduction to the specific location for the visitor using only the location information provided.";
+        
+        return prompt;
     }
 }
