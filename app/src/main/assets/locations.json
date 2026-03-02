@@ -1,0 +1,10 @@
+{
+  "locations": [
+    {
+      "temiLocationName": "engineering_wing_entrance",
+      "displayName": "Engineering Building",
+      "description": "Welcome to the Engineering Building! This is where students work on robotics, software, and mechanical engineering projects.",
+      "wing": "North Wing"
+    }
+  ]
+}
