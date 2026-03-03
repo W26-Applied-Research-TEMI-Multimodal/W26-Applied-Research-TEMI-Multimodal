@@ -31,6 +31,7 @@ public class GeminiLLMService {
     private static final String API_URL = "https://generativelanguage.googleapis.com/v1beta/models/" + MODEL + ":generateContent";
     private OkHttpClient httpClient;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
+
     /**
      * Callback interface for receiving Gemini responses
      */
@@ -90,7 +91,6 @@ public class GeminiLLMService {
                         }
 
                         String msg = "API request failed: " + r.code();
-                        // Optional: include a small hint (avoid logging sensitive content later)
                         if (errBody != null && !errBody.isEmpty()) {
                             msg += " (error body received)";
                         }
