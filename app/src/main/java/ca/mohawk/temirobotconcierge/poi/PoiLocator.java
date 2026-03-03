@@ -18,13 +18,8 @@ import static com.robotemi.sdk.map.MapDataModelKt.LOCATION;
  * - Worker-thread execution (no UI blocking).
  */
 public class PoiLocator {
-    public interface Callback {
-        void onSuccess(Result result);
-        void onError(String message);
-    }
-
-    public interface CallbackString {
-        void onSuccess(String response);
+    public interface Callback<T> {
+        void onSuccess(T value);
         void onError(String message);
     }
 
@@ -46,7 +41,7 @@ public class PoiLocator {
         executor.shutdown();
     }
 
-    public void findNearestSavedLocation(com.robotemi.sdk.Robot robot, Callback callback) {
+    public void findNearestSavedLocation(com.robotemi.sdk.Robot robot, Callback<Result> callback) {
         executor.execute(() -> {
             if (robot == null) {
                 callback.onError("Robot instance is null.");
@@ -116,14 +111,14 @@ public class PoiLocator {
     }
 
     public void buildWhereAreWeResponse(com.robotemi.sdk.Robot robot,LocationProvider locationProvider,
-            float maxDistanceMeters,CallbackString callback) {
-        findNearestSavedLocation(robot, new Callback() {
+            float maxDistanceMeters, Callback<String> callback) {
+        findNearestSavedLocation(robot, new Callback<Result>() {
             @Override
             public void onSuccess(Result result) {
                 String nearestName = result.nearestTemiLocationName;
 
                 if (nearestName == null) {
-                    callback.onError("I’m not sure where we are right now.");
+                    callback.onError("I'm not sure where we are right now.");
                     return;
                 }
 
@@ -131,7 +126,7 @@ public class PoiLocator {
                 nearestName = nearestName.trim().toLowerCase();
 
                 if (result.nearestDistance > maxDistanceMeters) {
-                    callback.onError("I’m not close enough to a saved point of interest to be sure where we are.");
+                    callback.onError("I'm not close enough to a saved point of interest to be sure where we are.");
                     return;
                 }
 
@@ -139,7 +134,7 @@ public class PoiLocator {
 
                 if (loc != null) {
                     StringBuilder msg = new StringBuilder();
-                    msg.append("We’re at ").append(loc.displayName).append(".");
+                    msg.append("We're at ").append(loc.displayName).append(".");
 
                     if (loc.wing != null && !loc.wing.isEmpty()) {
                         msg.append(" This is in the ").append(loc.wing).append(".");
@@ -147,7 +142,7 @@ public class PoiLocator {
 
                     callback.onSuccess(msg.toString());
                 } else {
-                    callback.onSuccess("We’re near " + nearestName + ".");
+                    callback.onSuccess("We're near " + nearestName + ".");
                 }
             }
 
