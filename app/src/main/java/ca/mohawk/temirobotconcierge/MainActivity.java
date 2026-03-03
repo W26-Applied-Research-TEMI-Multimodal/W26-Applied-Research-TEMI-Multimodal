@@ -36,17 +36,10 @@ public class MainActivity extends AppCompatActivity implements OnLoadMapStatusCh
         mapsContainer = findViewById(R.id.mapsContainer);
         
         // Initialize Temi SDK
-        initTemiSdk();
-
-        // Get TEMI robot instance
+        robot = tryGetRobotOrFinish();
         if (robot == null) {
-            Log.e(TAG, "Robot not available (Temi SDK not linked or not running on the device");
-            Toast.makeText(this,"Robot not available", Toast.LENGTH_SHORT).show();
-            finish();
             return;
         }
-
-        Log.d(TAG, "Robot instance obtained");
 
         // Register listener for map load status
         robot.addOnLoadMapStatusChangedListener(this);
@@ -54,14 +47,17 @@ public class MainActivity extends AppCompatActivity implements OnLoadMapStatusCh
         // Load and display available maps
         loadMaps();
     }
-    
-    private void initTemiSdk() {
+
+    private Robot tryGetRobotOrFinish() {
         try {
-            robot = Robot.getInstance();
-            Log.d(TAG, "Temi SDK linked");
+            Robot r = Robot.getInstance();
+            Log.d(TAG, "Robot instance obtained");
+            return r;
         } catch (Throwable t) {
-            robot = null;
-            Log.d(TAG, "Temi SDK not available on this device.");
+            Log.e(TAG, "Robot not available (Temi SDK not linked or not running on device)", t);
+            Toast.makeText(this,"Robot not available", Toast.LENGTH_SHORT).show();
+            finish();
+            return null;
         }
     }
 
