@@ -23,6 +23,11 @@ public class PoiLocator {
         void onError(String message);
     }
 
+    public interface CallbackString {
+        void onSuccess(String response);
+        void onError(String message);
+    }
+
     public static class Result {
         public final Position currentPosition;
         public final @Nullable String nearestTemiLocationName;
@@ -41,10 +46,7 @@ public class PoiLocator {
         executor.shutdown();
     }
 
-    public void findNearestSavedLocation(
-            com.robotemi.sdk.Robot robot,
-            Callback callback
-    ) {
+    public void findNearestSavedLocation(com.robotemi.sdk.Robot robot, Callback callback) {
         executor.execute(() -> {
             if (robot == null) {
                 callback.onError("Robot instance is null.");
@@ -88,12 +90,7 @@ public class PoiLocator {
                 // Saved locations should have 1 pose
                 LayerPose p = poses.get(0);
 
-                float d = distance2D(
-                        currentPosition.getX(),
-                        currentPosition.getY(),
-                        p.getX(),
-                        p.getY()
-                );
+                float d = distance2D(currentPosition.getX(),currentPosition.getY(), p.getX(), p.getY());
 
                 if (d < bestDist) {
                     bestDist = d;
@@ -106,11 +103,7 @@ public class PoiLocator {
                 return;
             }
 
-            Result result = new Result(
-                    currentPosition,
-                    bestName,
-                    bestDist
-            );
+            Result result = new Result( currentPosition,bestName,bestDist);
 
             callback.onSuccess(result);
         });
@@ -120,6 +113,49 @@ public class PoiLocator {
         float dx = ax - bx;
         float dy = ay - by;
         return (float) Math.sqrt(dx * dx + dy * dy);
+    }
+
+    public void buildWhereAreWeResponse(com.robotemi.sdk.Robot robot,LocationProvider locationProvider,
+            float maxDistanceMeters,CallbackString callback) {
+        findNearestSavedLocation(robot, new Callback() {
+            @Override
+            public void onSuccess(Result result) {
+                String nearestName = result.nearestTemiLocationName;
+
+                if (nearestName == null) {
+                    callback.onError("I’m not sure where we are right now.");
+                    return;
+                }
+
+                // Normalize because Temi LOCATION layerIds are lowercased
+                nearestName = nearestName.trim().toLowerCase();
+
+                if (result.nearestDistance > maxDistanceMeters) {
+                    callback.onError("I’m not close enough to a saved point of interest to be sure where we are.");
+                    return;
+                }
+
+                Location loc = locationProvider != null ? locationProvider.getLocation(nearestName) : null;
+
+                if (loc != null) {
+                    StringBuilder msg = new StringBuilder();
+                    msg.append("We’re at ").append(loc.displayName).append(".");
+
+                    if (loc.wing != null && !loc.wing.isEmpty()) {
+                        msg.append(" This is in the ").append(loc.wing).append(".");
+                    }
+
+                    callback.onSuccess(msg.toString());
+                } else {
+                    callback.onSuccess("We’re near " + nearestName + ".");
+                }
+            }
+
+            @Override
+            public void onError(String message) {
+                callback.onError(message);
+            }
+        });
     }
 
 }
