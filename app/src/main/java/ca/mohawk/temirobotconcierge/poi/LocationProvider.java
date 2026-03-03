@@ -20,7 +20,6 @@ import java.util.Map;
 public class LocationProvider {
     private static final String TAG = "LocationProvider";
     private static final String LOCATIONS_FILE = "locations.json";
-    
     private Map<String, Location> locationMap;
     
     /**
