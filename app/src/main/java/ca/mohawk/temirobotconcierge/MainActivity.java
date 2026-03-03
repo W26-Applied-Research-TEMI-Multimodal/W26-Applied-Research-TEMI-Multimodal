@@ -26,7 +26,6 @@ import java.util.List;
  */
 public class MainActivity extends AppCompatActivity implements OnLoadMapStatusChangedListener {
     private static final String TAG = "MainActivity";
-    
     private Robot robot;
     private GeminiLLMService geminiService;
     private LinearLayout mapsContainer;

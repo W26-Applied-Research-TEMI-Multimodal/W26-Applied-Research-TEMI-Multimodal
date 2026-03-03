@@ -1,11 +1,10 @@
 package ca.mohawk.temirobotconcierge.llm;
 
 import android.util.Log;
-
+import ca.mohawk.temirobotconcierge.BuildConfig;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -18,9 +17,8 @@ import okhttp3.Response;
  */
 public class GeminiLLMService {
     private static final String TAG = "GeminiLLMService";
-    
-    private static final String GEMINI_API_KEY = "AIzaSyC1fLlveeTo9Uth8ok3a5CnuPi3bRltods";
     private static final String MODEL = "gemini-2.5-flash";
+    private String key = BuildConfig.GEMINI_API_KEY;
     private static final String API_URL = "https://generativelanguage.googleapis.com/v1beta/models/" + MODEL + ":generateContent";
     
     private OkHttpClient httpClient;
@@ -50,24 +48,24 @@ public class GeminiLLMService {
                 // Build JSON request body
                 String jsonRequest = buildRequestJson(prompt);
                 Log.d(TAG, "Sending request to Gemini: " + jsonRequest);
-                
+
                 // Create HTTP POST request
                 Request request = new Request.Builder()
-                    .url(API_URL + "?key=" + GEMINI_API_KEY)
+                    .url(API_URL + "?key=" + key)
                     .post(RequestBody.create(jsonRequest, MediaType.get("application/json")))
                     .build();
-                
+
                 // Send request and get response
                 Response response = httpClient.newCall(request).execute();
-                
+
                 if (response.isSuccessful()) {
                     // Parse response JSON
                     String responseBody = response.body().string();
                     Log.d(TAG, "Gemini response: " + responseBody);
-                    
+
                     // Extract generated text from response
                     String generatedText = parseGeminiResponse(responseBody);
-                    
+
                     // Call callback with result
                     callback.onSuccess(generatedText);
                 } else {
@@ -75,9 +73,9 @@ public class GeminiLLMService {
                     Log.e(TAG, error);
                     callback.onError(error);
                 }
-                
+
                 response.close();
-                
+
             } catch (Exception e) {
                 Log.e(TAG, "Error calling Gemini API: " + e.getMessage());
                 callback.onError("Error: " + e.getMessage());
