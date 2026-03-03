@@ -14,6 +14,7 @@ import com.robotemi.sdk.TtsRequest;
 import ca.mohawk.temirobotconcierge.poi.Location;
 import ca.mohawk.temirobotconcierge.poi.LocationProvider;
 import ca.mohawk.temirobotconcierge.llm.GeminiLLMService;
+import ca.mohawk.temirobotconcierge.poi.PoiLocator;
 
 import java.util.List;
 
@@ -28,11 +29,12 @@ import java.util.List;
  */
 public class LocationSelectActivity extends AppCompatActivity {
     private static final String TAG = "LocationSelectActivity";
-    
     private Robot robot;
     private LocationProvider locationProvider;
     private GeminiLLMService geminiService;
     private LinearLayout locationsContainer;
+    private PoiLocator poiLocator;
+    private static final float WHERE_ARE_WE_MAX_DISTANCE_M = 2.0f;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -55,6 +57,7 @@ public class LocationSelectActivity extends AppCompatActivity {
         // Initialize LocationProvider to access location metadata from JSON
         try {
             locationProvider = new LocationProvider(this);
+            poiLocator = new PoiLocator();
             Log.d(TAG, "LocationProvider initialized");
         } catch (Exception e) {
             Log.e(TAG, "Failed to initialize LocationProvider: " + e.getMessage());
@@ -73,7 +76,7 @@ public class LocationSelectActivity extends AppCompatActivity {
             return;
         }
         
-        // Load and display locations
+        addWhereAreWeButton();
         loadLocations();
     }
     
@@ -174,7 +177,52 @@ public class LocationSelectActivity extends AppCompatActivity {
         
         locationsContainer.addView(button);
     }
-    
+
+    private void addWhereAreWeButton() {
+        Button whereBtn = new Button(this);
+        whereBtn.setText("Where are we?");
+        whereBtn.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        ));
+        whereBtn.setPadding(16, 16, 16, 16);
+
+        whereBtn.setOnClickListener(v -> {
+
+            poiLocator.buildWhereAreWeResponse(robot, locationProvider, WHERE_ARE_WE_MAX_DISTANCE_M, new PoiLocator.Callback<String>() {
+                @Override
+                public void onSuccess(String response) {
+                    try {
+                        robot.speak(TtsRequest.create(response));
+                    } catch (Exception e) {
+                        Toast.makeText(LocationSelectActivity.this,
+                                "Speak error: " + e.getMessage(),
+                                Toast.LENGTH_SHORT).show();
+                    }
+                }
+
+                @Override
+                public void onError(String message) {
+                    String fallback = (message == null || message.trim().isEmpty())
+                            ? "I'm not sure where we are right now."
+                            : message;
+
+                    try {
+                        robot.speak(TtsRequest.create(fallback));
+                    } catch (Exception e) {
+                        Toast.makeText(LocationSelectActivity.this,
+                                "Speak error: " + e.getMessage(),
+                                Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
+        });
+
+        // Add at the top of the container
+        locationsContainer.addView(whereBtn, 0);
+    }
+
+
     /**
      * Build a tour guide prompt from location metadata
      * Uses location displayName, description, and wing to create context for Gemini
@@ -197,5 +245,12 @@ public class LocationSelectActivity extends AppCompatActivity {
         prompt += " Provide a brief, welcoming introduction to the specific location for the visitor using only the location information provided.";
         
         return prompt;
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (poiLocator != null) poiLocator.shutdown();
+        if (geminiService != null) geminiService.shutdown();
     }
 }
