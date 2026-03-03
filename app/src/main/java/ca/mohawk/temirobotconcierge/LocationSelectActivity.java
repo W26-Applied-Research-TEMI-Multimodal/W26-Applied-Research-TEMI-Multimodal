@@ -116,7 +116,8 @@ public class LocationSelectActivity extends AppCompatActivity {
      */
     private void createLocationButton(String locationName) {
         // Look up enriched location data from JSON
-        Location locationData = locationProvider.getLocation(locationName);
+        String lookupName = locationName == null ? "" : locationName.trim().toLowerCase();
+        Location locationData = locationProvider.getLocation(lookupName);
         
         // Use display name if available, otherwise fall back to location name
         String displayName = (locationData != null) ? locationData.displayName : locationName;
