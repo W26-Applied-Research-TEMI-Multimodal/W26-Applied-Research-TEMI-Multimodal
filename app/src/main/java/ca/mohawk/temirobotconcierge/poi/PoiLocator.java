@@ -36,21 +36,42 @@ public class PoiLocator {
         executor.shutdown();
     }
 
-    public void findNearestSavedLocation(com.robotemi.sdk.Robot robot, Callback callback) {
+    public void findNearestSavedLocation(
+            com.robotemi.sdk.Robot robot,
+            Callback callback
+    ) {
         executor.execute(() -> {
             if (robot == null) {
                 callback.onError("Robot instance is null.");
                 return;
             }
 
+            // Get current position
             Position currentPosition = robot.getPosition();
-
             if (currentPosition == null) {
                 callback.onError("Unable to retrieve robot position.");
                 return;
             }
 
-            Result result = new Result(currentPosition,null,-1f);
+            // Get map data
+            com.robotemi.sdk.map.MapDataModel mapData = robot.getMapData();
+            if (mapData == null) {
+                callback.onError("No map data available. Load a map first.");
+                return;
+            }
+
+            // Validate saved locations exist
+            if (mapData.getLocations() == null || mapData.getLocations().isEmpty()) {
+                callback.onError("No saved locations found in current map.");
+                return;
+            }
+
+            // Placeholder success until nearest logic is implemented
+            Result result = new Result(
+                    currentPosition,
+                    null,
+                    -1f
+            );
 
             callback.onSuccess(result);
         });
