@@ -19,6 +19,7 @@ import android.os.Handler;
 import android.os.Looper;
 
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Gemini LLM Service - Handles communication with Google Gemini API
@@ -37,9 +38,14 @@ public class GeminiLLMService {
         void onSuccess(String response);
         void onError(String error);
     }
-    
+
     public GeminiLLMService() {
-        this.httpClient = new OkHttpClient();
+        this.httpClient = new OkHttpClient.Builder()
+                .connectTimeout(5, TimeUnit.SECONDS)
+                .writeTimeout(5, TimeUnit.SECONDS)
+                .readTimeout(10, TimeUnit.SECONDS)
+                .callTimeout(12, TimeUnit.SECONDS)
+                .build();
     }
     
     /**
