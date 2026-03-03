@@ -23,9 +23,7 @@ public class PoiLocator {
         public final @Nullable String nearestTemiLocationName;
         public final float nearestDistance;
 
-        public Result(Position currentPosition,
-                      @Nullable String nearestTemiLocationName,
-                      float nearestDistance) {
+        public Result(Position currentPosition, @Nullable String nearestTemiLocationName,float nearestDistance) {
             this.currentPosition = currentPosition;
             this.nearestTemiLocationName = nearestTemiLocationName;
             this.nearestDistance = nearestDistance;
@@ -37,4 +35,17 @@ public class PoiLocator {
     public void shutdown() {
         executor.shutdown();
     }
+
+    public void findNearestSavedLocation( com.robotemi.sdk.Robot robot, Callback callback) {
+        executor.execute(() -> {
+            if (robot == null) {
+                callback.onError("Robot instance is null.");
+                return;
+            }
+
+            // Placeholder until next commit
+            callback.onError("Nearest location logic not implemented yet.");
+        });
+    }
+
 }
