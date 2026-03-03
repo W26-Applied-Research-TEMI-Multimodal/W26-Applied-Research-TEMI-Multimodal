@@ -52,16 +52,25 @@ public class LocationProvider {
             
             // Parse JSON
             JSONObject jsonObject = new JSONObject(jsonString.toString());
-            JSONArray locationsArray = jsonObject.getJSONArray("locations");
+            JSONArray locationsArray = jsonObject.optJSONArray("locations");
+            if (locationsArray == null) {
+                Log.w(TAG, "No 'locations' array found in " + LOCATIONS_FILE);
+                return;
+            }
             
             // Create Location objects for each entry
             for (int i = 0; i < locationsArray.length(); i++) {
                 JSONObject locationObj = locationsArray.getJSONObject(i);
                 
-                String temiLocationName = locationObj.getString("temiLocationName");
-                String displayName = locationObj.getString("displayName");
-                String description = locationObj.getString("description");
-                String wing = locationObj.getString("wing");
+                String temiLocationName = locationObj.optString("temiLocationName").trim();
+                String displayName = locationObj.optString("displayName", temiLocationName).trim();
+                String description = locationObj.optString("description").trim();
+                String wing = locationObj.optString("wing").trim();
+
+                if (temiLocationName.isEmpty()) {
+                    Log.w(TAG, "Skipping location entry with missing temiLocationName");
+                    continue;
+                }
                 
                 // Create Location object
                 Location location = new Location(temiLocationName, displayName, description, wing);
