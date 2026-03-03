@@ -12,8 +12,6 @@ import com.robotemi.sdk.Robot;
 import com.robotemi.sdk.map.MapModel;
 import com.robotemi.sdk.map.OnLoadMapStatusChangedListener;
 
-import ca.mohawk.temirobotconcierge.llm.GeminiLLMService;
-
 import java.util.List;
 
 /** Main Activity - Displays available maps and allows user to select one
@@ -27,7 +25,6 @@ import java.util.List;
 public class MainActivity extends AppCompatActivity implements OnLoadMapStatusChangedListener {
     private static final String TAG = "MainActivity";
     private Robot robot;
-    private GeminiLLMService geminiService;
     private LinearLayout mapsContainer;
     private String pendingMapId;  // Track which map is being loaded
     
@@ -38,10 +35,9 @@ public class MainActivity extends AppCompatActivity implements OnLoadMapStatusCh
         
         mapsContainer = findViewById(R.id.mapsContainer);
         
-        // Initialize services
+        // Initialize Temi SDK
         initTemiSdk();
-        initLLMService();
-        
+
         // Get TEMI robot instance
         try {
             robot = Robot.getInstance();
@@ -69,16 +65,7 @@ public class MainActivity extends AppCompatActivity implements OnLoadMapStatusCh
             Log.d(TAG, "Temi SDK not available on this device.");
         }
     }
-    
-    /**
-     * Initialize the Gemini LLM Service
-     */
-    private void initLLMService() {
-        Log.d(TAG, "Initializing LLM Service");
-        geminiService = new GeminiLLMService();
-        Log.d(TAG, "LLM Service initialized successfully");
-    }
-    
+
     /**
      * Get all available maps and display as buttons
      */
@@ -214,9 +201,6 @@ public class MainActivity extends AppCompatActivity implements OnLoadMapStatusCh
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (geminiService != null) {
-            geminiService.shutdown();
-        }
         // Unregister listener when done
         try {
             if (robot != null) {
