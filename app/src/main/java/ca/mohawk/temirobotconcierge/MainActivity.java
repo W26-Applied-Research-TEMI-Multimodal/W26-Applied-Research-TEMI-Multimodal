@@ -88,6 +88,8 @@ public class MainActivity extends AppCompatActivity implements OnLoadMapStatusCh
         } catch (Exception e) {
             Log.e(TAG, "Error loading maps: " + e.getMessage());
             Toast.makeText(this, "Error loading maps: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            pendingMapId = null;
+            enableAllButtons();
         }
     }
     
@@ -202,7 +204,7 @@ public class MainActivity extends AppCompatActivity implements OnLoadMapStatusCh
                 robot.removeOnLoadMapStatusChangedListener(this);
             }
         } catch (Exception e) {
-            Log.e(TAG, "Error removing listener: " + e.getMessage());
+            Log.e(TAG, "Error removing listener: ", e);
         }
     }
 }
