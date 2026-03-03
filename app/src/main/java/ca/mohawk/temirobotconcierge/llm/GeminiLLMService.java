@@ -5,13 +5,20 @@ import ca.mohawk.temirobotconcierge.BuildConfig;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+
+import okhttp3.Call;
+import okhttp3.Callback;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import okhttp3.ResponseBody;
+
 import android.os.Handler;
 import android.os.Looper;
+
+import java.io.IOException;
 
 /**
  * Gemini LLM Service - Handles communication with Google Gemini API
@@ -20,7 +27,6 @@ import android.os.Looper;
 public class GeminiLLMService {
     private static final String TAG = "GeminiLLMService";
     private static final String MODEL = "gemini-2.5-flash";
-    private String key = BuildConfig.GEMINI_API_KEY;
     private static final String API_URL = "https://generativelanguage.googleapis.com/v1beta/models/" + MODEL + ":generateContent";
     private OkHttpClient httpClient;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -44,44 +50,67 @@ public class GeminiLLMService {
      * @param callback Called when response arrives or error occurs
      */
     public void generateTourGuide(String prompt, ResponseCallback callback) {
-        new Thread(() -> {
-            try {
-                // Build JSON request body
-                String jsonRequest = buildRequestJson(prompt);
-                Log.d(TAG, "Sending request to Gemini: " + jsonRequest);
+        final String key = BuildConfig.GEMINI_API_KEY;
 
-                // Create HTTP POST request
-                Request request = new Request.Builder()
-                    .url(API_URL + "?key=" + key)
-                    .post(RequestBody.create(jsonRequest, MediaType.get("application/json")))
-                    .build();
+        if (key == null || key.trim().isEmpty()) {
+            mainHandler.post(() -> callback.onError("Gemini API key not configured."));
+            return;
+        }
 
-                // Send request and get response
-                Response response = httpClient.newCall(request).execute();
+        final String jsonRequest = buildRequestJson(prompt);
 
-                if (response.isSuccessful()) {
-                    // Parse response JSON
-                    String responseBody = response.body().string();
-                    Log.d(TAG, "Gemini response: " + responseBody);
+        Request request = new Request.Builder()
+                .url(API_URL + "?key=" + key)
+                .post(RequestBody.create(jsonRequest, MediaType.get("application/json")))
+                .build();
 
-                    // Extract generated text from response
+        httpClient.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                Log.e(TAG, "Gemini API call failed: " + e.getMessage(), e);
+                mainHandler.post(() -> callback.onError("Network error: " + e.getMessage()));
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) {
+                try (Response r = response) {
+                    if (!r.isSuccessful()) {
+                        String errBody = "";
+                        ResponseBody body = r.body();
+                        if (body != null) {
+                            try {
+                                errBody = body.string();
+                            } catch (Exception ignored) { }
+                        }
+
+                        String msg = "API request failed: " + r.code();
+                        // Optional: include a small hint (avoid logging sensitive content later)
+                        if (errBody != null && !errBody.isEmpty()) {
+                            msg += " (error body received)";
+                        }
+
+                        Log.e(TAG, msg);
+                        String finalMsg = msg;
+                        mainHandler.post(() -> callback.onError(finalMsg));
+                        return;
+                    }
+
+                    ResponseBody body = r.body();
+                    if (body == null) {
+                        mainHandler.post(() -> callback.onError("Empty response from Gemini."));
+                        return;
+                    }
+
+                    String responseBody = body.string();
                     String generatedText = parseGeminiResponse(responseBody);
 
-                    // Call callback with result
                     mainHandler.post(() -> callback.onSuccess(generatedText));
-                } else {
-                    String error = "API request failed: " + response.code();
-                    Log.e(TAG, error);
-                    mainHandler.post(() -> callback.onError(error));
+                } catch (Exception e) {
+                    Log.e(TAG, "Error handling Gemini response: " + e.getMessage(), e);
+                    mainHandler.post(() -> callback.onError("Error: " + e.getMessage()));
                 }
-
-                response.close();
-
-            } catch (Exception e) {
-                Log.e(TAG, "Error calling Gemini API: " + e.getMessage());
-                mainHandler.post(() -> callback.onError("Error: " + e.getMessage()));
             }
-        }).start();
+        });
     }
     
     /**
