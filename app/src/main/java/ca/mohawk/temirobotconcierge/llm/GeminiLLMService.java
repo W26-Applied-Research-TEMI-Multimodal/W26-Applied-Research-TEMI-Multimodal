@@ -10,6 +10,8 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import android.os.Handler;
+import android.os.Looper;
 
 /**
  * Gemini LLM Service - Handles communication with Google Gemini API
@@ -20,9 +22,8 @@ public class GeminiLLMService {
     private static final String MODEL = "gemini-2.5-flash";
     private String key = BuildConfig.GEMINI_API_KEY;
     private static final String API_URL = "https://generativelanguage.googleapis.com/v1beta/models/" + MODEL + ":generateContent";
-    
     private OkHttpClient httpClient;
-    
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
     /**
      * Callback interface for receiving Gemini responses
      */
@@ -67,18 +68,18 @@ public class GeminiLLMService {
                     String generatedText = parseGeminiResponse(responseBody);
 
                     // Call callback with result
-                    callback.onSuccess(generatedText);
+                    mainHandler.post(() -> callback.onSuccess(generatedText));
                 } else {
                     String error = "API request failed: " + response.code();
                     Log.e(TAG, error);
-                    callback.onError(error);
+                    mainHandler.post(() -> callback.onError(error));
                 }
 
                 response.close();
 
             } catch (Exception e) {
                 Log.e(TAG, "Error calling Gemini API: " + e.getMessage());
-                callback.onError("Error: " + e.getMessage());
+                mainHandler.post(() -> callback.onError("Error: " + e.getMessage()));
             }
         }).start();
     }
