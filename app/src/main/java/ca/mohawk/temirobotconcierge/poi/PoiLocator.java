@@ -36,15 +36,23 @@ public class PoiLocator {
         executor.shutdown();
     }
 
-    public void findNearestSavedLocation( com.robotemi.sdk.Robot robot, Callback callback) {
+    public void findNearestSavedLocation(com.robotemi.sdk.Robot robot, Callback callback) {
         executor.execute(() -> {
             if (robot == null) {
                 callback.onError("Robot instance is null.");
                 return;
             }
 
-            // Placeholder until next commit
-            callback.onError("Nearest location logic not implemented yet.");
+            Position currentPosition = robot.getPosition();
+
+            if (currentPosition == null) {
+                callback.onError("Unable to retrieve robot position.");
+                return;
+            }
+
+            Result result = new Result(currentPosition,null,-1f);
+
+            callback.onSuccess(result);
         });
     }
 
