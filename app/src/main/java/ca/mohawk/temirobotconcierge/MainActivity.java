@@ -21,6 +21,8 @@ import java.util.List;
  * 3. When user taps a map, load it via robot.loadMap(mapId)
  * 4. Listen for load completion via OnLoadMapStatusChangedListener
  * 5. Launch LocationSelectActivity when map is fully loaded
+ *
+ * Cloning new repo
  */
 public class MainActivity extends AppCompatActivity implements OnLoadMapStatusChangedListener {
     private static final String TAG = "MainActivity";
