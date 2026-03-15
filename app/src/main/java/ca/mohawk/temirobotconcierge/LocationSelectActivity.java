@@ -1,15 +1,20 @@
 package ca.mohawk.temirobotconcierge;
 
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.robotemi.sdk.Robot;
 import com.robotemi.sdk.TtsRequest;
+import com.robotemi.sdk.listeners.OnGoToLocationStatusChangedListener;
 
 import ca.mohawk.temirobotconcierge.poi.Location;
 import ca.mohawk.temirobotconcierge.poi.LocationProvider;
@@ -27,13 +32,27 @@ import java.util.List;
  * 3. Displays location names as buttons
  * 4. When user taps a location, robot navigates there
  */
-public class LocationSelectActivity extends AppCompatActivity {
+public class LocationSelectActivity extends AppCompatActivity implements OnGoToLocationStatusChangedListener {
     private static final String TAG = "LocationSelectActivity";
+    private static final String DEMO_LOCATION_NAME = "engineering_wing_entrance";
+    private static final long DEMO_ARRIVAL_DELAY_MS = 2500L;
     private Robot robot;
     private LocationProvider locationProvider;
     private GeminiLLMService geminiService;
     private LinearLayout locationsContainer;
+    private ProgressBar locationsLoadingIndicator;
+    private ProgressBar navigationProgressIndicator;
+    private TextView locationLoadStatus;
+    private TextView locationTitle;
+    private TextView navigationStatusText;
+    private TextView tourGuideResponseText;
     private PoiLocator poiLocator;
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private boolean demoMode;
+    private String selectedMapName;
+    private String pendingLocationName;
+    private String pendingDisplayName;
+    private Location pendingLocationData;
     private static final float WHERE_ARE_WE_MAX_DISTANCE_M = 2.0f;
     
     @Override
@@ -42,10 +61,23 @@ public class LocationSelectActivity extends AppCompatActivity {
         setContentView(R.layout.activity_location_select);
         
         locationsContainer = findViewById(R.id.locationsContainer);
+        locationsLoadingIndicator = findViewById(R.id.locationsLoadingIndicator);
+        navigationProgressIndicator = findViewById(R.id.navigationProgressIndicator);
+        locationLoadStatus = findViewById(R.id.locationLoadStatus);
+        locationTitle = findViewById(R.id.locationTitle);
+        navigationStatusText = findViewById(R.id.navigationStatusText);
+        tourGuideResponseText = findViewById(R.id.tourGuideResponseText);
+        demoMode = getIntent().getBooleanExtra(MainActivity.EXTRA_DEMO_MODE, false);
+        selectedMapName = getIntent().getStringExtra(MainActivity.EXTRA_SELECTED_MAP_NAME);
+
+        if (selectedMapName != null && !selectedMapName.trim().isEmpty()) {
+            locationTitle.setText("Select Location - " + selectedMapName);
+        }
         
         // Get TEMI robot instance
         try {
             robot = Robot.getInstance();
+            robot.addOnGoToLocationStatusChangedListener(this);
             Log.d(TAG, "Robot instance obtained");
         } catch (Exception e) {
             Log.e(TAG, "Failed to get Robot instance: " + e.getMessage());
@@ -76,7 +108,9 @@ public class LocationSelectActivity extends AppCompatActivity {
             return;
         }
         
-        addWhereAreWeButton();
+        if (!demoMode) {
+            addWhereAreWeButton();
+        }
         loadLocations();
     }
     
@@ -85,6 +119,12 @@ public class LocationSelectActivity extends AppCompatActivity {
      */
     private void loadLocations() {
         Log.d(TAG, "Loading locations");
+        showLocationsLoading(true, "Loading locations...");
+
+        if (demoMode) {
+            handler.postDelayed(this::loadDemoLocation, 850);
+            return;
+        }
         
         try {
             // Get list of location names from current map
@@ -92,7 +132,8 @@ public class LocationSelectActivity extends AppCompatActivity {
             
             if (locationNames == null || locationNames.isEmpty()) {
                 Log.w(TAG, "No locations available. Make sure a map is loaded first.");
-                Toast.makeText(this, "No locations found. Load a map first.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "No locations found. Switching to demo location.", Toast.LENGTH_SHORT).show();
+                loadDemoLocation();
                 return;
             }
             
@@ -103,11 +144,19 @@ public class LocationSelectActivity extends AppCompatActivity {
                 createLocationButton(locationName);
                 Log.d(TAG, "Added button for location: " + locationName);
             }
+            showLocationsLoading(false, "Select a location");
             
         } catch (Exception e) {
             Log.e(TAG, "Error loading locations: " + e.getMessage());
-            Toast.makeText(this, "Error loading locations: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Error loading locations. Using demo location.", Toast.LENGTH_SHORT).show();
+            loadDemoLocation();
         }
+    }
+
+    private void loadDemoLocation() {
+        Log.d(TAG, "Loading hardcoded demo location");
+        createLocationButton(DEMO_LOCATION_NAME);
+        showLocationsLoading(false, "Demo location ready");
     }
     
     /**
@@ -139,6 +188,7 @@ public class LocationSelectActivity extends AppCompatActivity {
             
             // Get the Location object with all metadata
             Location selectedLocation = (Location) button.getTag();
+            startNavigationUi(locationName, displayName, selectedLocation);
             
             // Tell robot to go to this location immediately
             try {
@@ -147,33 +197,17 @@ public class LocationSelectActivity extends AppCompatActivity {
                 Toast.makeText(this, "Navigating to " + displayName, Toast.LENGTH_SHORT).show();
             } catch (Exception e) {
                 Log.e(TAG, "Error navigating to location: " + e.getMessage());
-                Toast.makeText(this, "Error navigating: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                return;
+                if (!demoMode) {
+                    showNavigationFailure("Navigation failed: " + e.getMessage());
+                    Toast.makeText(this, "Error navigating: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                Toast.makeText(this, "Demo mode: simulated navigation to " + displayName, Toast.LENGTH_SHORT).show();
             }
-            
-            // Build prompt from location metadata
-            String prompt = buildTourGuidePrompt(selectedLocation);
-            Log.d(TAG, "Built prompt: " + prompt);
-            
-            // Send prompt to Gemini API (runs in background thread)
-            geminiService.generateTourGuide(prompt, new GeminiLLMService.ResponseCallback() {
-                @Override
-                public void onSuccess(String response) {
-                    Log.d(TAG, "Gemini response received: " + response);
-                    try {
-                        robot.speak(TtsRequest.create(response));
-                        Log.d(TAG, "Robot speaking tour guide");
-                    } catch (Exception e) {
-                        Log.e(TAG, "Error making robot speak: " + e.getMessage());
-                    }
-                }
-                
-                @Override
-                public void onError(String error) {
-                    Log.e(TAG, "Gemini API error: " + error);
-                    Toast.makeText(LocationSelectActivity.this, "Error generating response: " + error, Toast.LENGTH_SHORT).show();
-                }
-            });
+
+            if (demoMode) {
+                handler.postDelayed(() -> handleArrival(locationName), DEMO_ARRIVAL_DELAY_MS);
+            }
         });
         
         locationsContainer.addView(button);
@@ -223,6 +257,95 @@ public class LocationSelectActivity extends AppCompatActivity {
         locationsContainer.addView(whereBtn, 0);
     }
 
+    private void startNavigationUi(String locationName, String displayName, Location location) {
+        pendingLocationName = locationName;
+        pendingDisplayName = displayName;
+        pendingLocationData = location;
+        navigationProgressIndicator.setVisibility(android.view.View.VISIBLE);
+        navigationStatusText.setText("Moving to " + displayName + "...");
+        tourGuideResponseText.setVisibility(android.view.View.GONE);
+        tourGuideResponseText.setText("");
+        setLocationButtonsEnabled(false);
+    }
+
+    private void setLocationButtonsEnabled(boolean enabled) {
+        for (int index = 0; index < locationsContainer.getChildCount(); index++) {
+            locationsContainer.getChildAt(index).setEnabled(enabled);
+        }
+    }
+
+    private void handleArrival(String locationName) {
+        if (pendingLocationName == null || !pendingLocationName.equalsIgnoreCase(locationName)) {
+            return;
+        }
+
+        String arrivedLocationName = pendingLocationName;
+        String arrivedDisplayName = pendingDisplayName;
+        Location arrivedLocationData = pendingLocationData;
+
+        navigationProgressIndicator.setVisibility(android.view.View.VISIBLE);
+        navigationStatusText.setText("Arrived at " + arrivedDisplayName + ". Generating welcome message...");
+        tourGuideResponseText.setText("Generating tour-guide response...");
+        tourGuideResponseText.setVisibility(android.view.View.VISIBLE);
+        setLocationButtonsEnabled(true);
+
+        pendingLocationName = null;
+        pendingDisplayName = null;
+        pendingLocationData = null;
+
+        requestArrivalResponse(arrivedLocationName, arrivedLocationData, arrivedDisplayName);
+    }
+
+    private void requestArrivalResponse(String locationName, Location location, String displayName) {
+        String fallbackResponse = buildArrivalTourResponse(locationName, location, displayName);
+        String prompt = buildTourGuidePrompt(location);
+
+        geminiService.generateTourGuide(prompt, new GeminiLLMService.ResponseCallback() {
+            @Override
+            public void onSuccess(String response) {
+                if (response != null && !response.trim().isEmpty()) {
+                    showArrivalResponse(displayName, response.trim(), false);
+                } else {
+                    showArrivalResponse(displayName, fallbackResponse, true);
+                }
+            }
+
+            @Override
+            public void onError(String error) {
+                Log.e(TAG, "Gemini API error on arrival: " + error);
+                showArrivalResponse(displayName, fallbackResponse, true);
+            }
+        });
+    }
+
+    private void showArrivalResponse(String displayName, String response, boolean fallbackUsed) {
+        navigationProgressIndicator.setVisibility(android.view.View.GONE);
+        navigationStatusText.setText(
+                fallbackUsed
+                        ? "Arrived at " + displayName + " - showing fallback welcome"
+                        : "Arrived at " + displayName
+        );
+        tourGuideResponseText.setText(response);
+        tourGuideResponseText.setVisibility(android.view.View.VISIBLE);
+
+        try {
+            robot.speak(TtsRequest.create(response));
+            Log.d(TAG, "Robot speaking arrival tour response");
+        } catch (Exception e) {
+            Log.e(TAG, "Error making robot speak: " + e.getMessage());
+            Toast.makeText(this, "Speak error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void showNavigationFailure(String message) {
+        navigationProgressIndicator.setVisibility(android.view.View.GONE);
+        navigationStatusText.setText(message);
+        setLocationButtonsEnabled(true);
+        pendingLocationName = null;
+        pendingDisplayName = null;
+        pendingLocationData = null;
+    }
+
 
     /**
      * Build a tour guide prompt from location metadata
@@ -243,14 +366,97 @@ public class LocationSelectActivity extends AppCompatActivity {
             prompt += ". " + location.description;
         }
         
-        prompt += " Provide a brief, welcoming introduction to the specific location for the visitor using only the location information provided.";
+        prompt += " You are a friendly campus tour guide robot."
+                + " Write a spoken welcome of 3 to 4 sentences for a visitor who just arrived here."
+                + " Be warm and conversational."
+                + " Rephrase the details naturally — do not copy them word for word."
+                + " Use only the facts provided and do not invent new ones."
+                + " Do not end with a hype line, slogan, or call to action."
+                + " No bullet points or markdown, plain spoken sentences only.";
         
         return prompt;
+    }
+
+    private String buildDemoTourResponse(Location location, String displayName) {
+        String resolvedName = displayName;
+        if (resolvedName == null || resolvedName.trim().isEmpty()) {
+            resolvedName = (location != null && location.displayName != null && !location.displayName.trim().isEmpty())
+                    ? location.displayName
+                    : "this area";
+        }
+
+        String description = (location != null && location.description != null)
+                ? location.description.trim()
+                : "";
+
+        String wing = (location != null && location.wing != null)
+                ? location.wing.trim()
+                : "";
+
+        StringBuilder response = new StringBuilder();
+        response.append("Welcome to ").append(resolvedName).append(". ");
+        if (!wing.isEmpty()) {
+            response.append("You're currently in the ").append(wing).append(". ");
+        }
+        if (!description.isEmpty()) {
+            response.append(description).append(" ");
+        }
+        response.append("Let me know if you'd like directions to another point of interest.");
+        return response.toString().trim();
+    }
+
+    private String buildArrivalTourResponse(String locationName, Location location, String displayName) {
+        if (locationName != null && locationName.trim().equalsIgnoreCase(DEMO_LOCATION_NAME)) {
+            return "Welcome to the Engineering Building. This is one of the main hubs for robotics, software, and mechanical engineering work. Students use this space for hands-on projects, prototyping, and applied research across the North Wing.";
+        }
+
+        return buildDemoTourResponse(location, displayName);
+    }
+
+    @Override
+    public void onGoToLocationStatusChanged(String location, String status, int descriptionId, String description) {
+        Log.d(TAG, "Go-to status changed. location=" + location + ", status=" + status + ", description=" + description);
+
+        if (pendingLocationName == null || location == null || !pendingLocationName.equalsIgnoreCase(location)) {
+            return;
+        }
+
+        String normalizedStatus = status == null ? "" : status.trim().toLowerCase();
+
+        if (normalizedStatus.contains("complete")) {
+            runOnUiThread(() -> handleArrival(location));
+            return;
+        }
+
+        if (normalizedStatus.contains("going") || normalizedStatus.contains("start") || normalizedStatus.contains("calculating")) {
+            runOnUiThread(() -> navigationStatusText.setText("Moving to " + pendingDisplayName + "..."));
+            return;
+        }
+
+        if (normalizedStatus.contains("abort") || normalizedStatus.contains("cancel") || normalizedStatus.contains("fail")) {
+            String failureMessage = (description == null || description.trim().isEmpty())
+                    ? "Navigation stopped before arrival"
+                    : description;
+            runOnUiThread(() -> showNavigationFailure(failureMessage));
+        }
+    }
+
+    private void showLocationsLoading(boolean show, String status) {
+        locationsLoadingIndicator.setVisibility(show ? android.view.View.VISIBLE : android.view.View.GONE);
+        locationLoadStatus.setText(status);
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        handler.removeCallbacksAndMessages(null);
+        try {
+            if (robot != null) {
+                robot.removeOnGoToLocationStatusChangedListener(this);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error removing go-to listener: " + e.getMessage());
+        }
         if (poiLocator != null) poiLocator.shutdown();
         if (geminiService != null) geminiService.shutdown();
     }
