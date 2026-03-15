@@ -1,5 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
+    // 1. Apply the plugin
+    id("com.google.android.libraries.mapsplatform.secrets-gradle-plugin")
 }
 
 android {
@@ -12,11 +14,12 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
-        val geminiKey: String = project.findProperty("GEMINI_API_KEY") as? String ?: ""
-        buildConfigField("String", "GEMINI_API_KEY", "\"$geminiKey\"")
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        
     }
-    buildFeatures{
+
+    buildFeatures {
         buildConfig = true
     }
 
@@ -29,6 +32,7 @@ android {
             )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -36,7 +40,6 @@ android {
 }
 
 dependencies {
-
     implementation(libs.appcompat)
     implementation(libs.material)
     implementation(libs.activity)
@@ -44,8 +47,8 @@ dependencies {
     implementation(libs.temi.sdk)
     implementation(libs.gson)
     implementation(libs.okhttp)
+    
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
-
 }
