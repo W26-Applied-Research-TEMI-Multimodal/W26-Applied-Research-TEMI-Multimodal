@@ -1,16 +1,24 @@
 package ca.mohawk.temirobotconcierge;
 
+import android.Manifest;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import android.widget.ImageButton;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 
 import com.robotemi.sdk.Robot;
 import com.robotemi.sdk.TtsRequest;
@@ -23,6 +31,7 @@ import ca.mohawk.temirobotconcierge.poi.PoiLocator;
 
 import java.util.List;
 import java.util.Locale;
+import java.io.ByteArrayOutputStream;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -45,6 +54,7 @@ public class LocationSelectActivity extends AppCompatActivity implements OnGoToL
     private LinearLayout locationsContainer;
     private ProgressBar locationsLoadingIndicator;
     private ProgressBar navigationProgressIndicator;
+    private ImageButton cameraButton;
     private TextView locationLoadStatus;
     private TextView locationTitle;
     private TextView navigationStatusText;
@@ -57,16 +67,24 @@ public class LocationSelectActivity extends AppCompatActivity implements OnGoToL
     private String pendingLocationName;
     private String pendingDisplayName;
     private Location pendingLocationData;
+    private String lastKnownLocationName;
+    private String lastKnownDisplayName;
+    private Location lastKnownLocationData;
     private static final float WHERE_ARE_WE_MAX_DISTANCE_M = 2.0f;
+    private ActivityResultLauncher<String> cameraPermissionLauncher;
+    private ActivityResultLauncher<Intent> cameraCaptureLauncher;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_location_select);
+
+        setupActivityResultLaunchers();
         
         locationsContainer = findViewById(R.id.locationsContainer);
         locationsLoadingIndicator = findViewById(R.id.locationsLoadingIndicator);
         navigationProgressIndicator = findViewById(R.id.navigationProgressIndicator);
+        cameraButton = findViewById(R.id.cameraButton);
         locationLoadStatus = findViewById(R.id.locationLoadStatus);
         locationTitle = findViewById(R.id.locationTitle);
         navigationStatusText = findViewById(R.id.navigationStatusText);
@@ -116,7 +134,144 @@ public class LocationSelectActivity extends AppCompatActivity implements OnGoToL
         if (!demoMode) {
             addWhereAreWeButton();
         }
+        setupCameraButton();
         loadLocations();
+    }
+
+    private void setupActivityResultLaunchers() {
+        cameraPermissionLauncher = registerForActivityResult(
+                new ActivityResultContracts.RequestPermission(),
+                isGranted -> {
+                    if (isGranted) {
+                        launchCameraCapture();
+                    } else {
+                        Toast.makeText(this, "Camera permission denied", Toast.LENGTH_SHORT).show();
+                    }
+                }
+        );
+
+        cameraCaptureLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() != RESULT_OK || result.getData() == null) {
+                        showLocationsLoading(false, "Select a location");
+                        return;
+                    }
+
+                    Object rawBitmap = result.getData().getExtras() == null
+                            ? null
+                            : result.getData().getExtras().get("data");
+
+                    if (!(rawBitmap instanceof Bitmap)) {
+                        showLocationsLoading(false, "Select a location");
+                        Toast.makeText(this, "Could not read captured image", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    Bitmap bitmap = (Bitmap) rawBitmap;
+                    analyzeCapturedImage(bitmap);
+                }
+        );
+    }
+
+    private void setupCameraButton() {
+        if (cameraButton == null) {
+            return;
+        }
+
+        cameraButton.setOnClickListener(v -> {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                    == PackageManager.PERMISSION_GRANTED) {
+                launchCameraCapture();
+            } else {
+                cameraPermissionLauncher.launch(Manifest.permission.CAMERA);
+            }
+        });
+    }
+
+    private void launchCameraCapture() {
+        Intent cameraIntent = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
+        if (cameraIntent.resolveActivity(getPackageManager()) == null) {
+            Toast.makeText(this, "No camera app available", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        showLocationsLoading(true, "Camera ready. Capture an image...");
+        cameraCaptureLauncher.launch(cameraIntent);
+    }
+
+    private void analyzeCapturedImage(Bitmap bitmap) {
+        if (bitmap == null) {
+            showLocationsLoading(false, "Select a location");
+            return;
+        }
+
+        showLocationsLoading(true, "Analyzing image...");
+        navigationProgressIndicator.setVisibility(android.view.View.VISIBLE);
+        navigationStatusText.setText("Analyzing captured image with location context...");
+        tourGuideResponseText.setVisibility(android.view.View.VISIBLE);
+        tourGuideResponseText.setText("Reading text and identifying what is visible...");
+
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 85, outputStream);
+        byte[] imageBytes = outputStream.toByteArray();
+
+        String locationContext = buildCurrentLocationContext();
+        String prompt = "You are a campus concierge robot analyzing a user-captured image. "
+                + "Current location context: " + locationContext + ". "
+                + "Tasks: 1) Identify key visible objects/signage. "
+                + "2) Extract and quote readable text from the image (OCR). "
+                + "3) Give a concise explanation of what this appears to be in this campus context. "
+                + "4) If text is unclear, say what is uncertain. "
+                + "Respond in 4 to 6 short spoken sentences with no markdown.";
+
+        geminiService.generateVisionTourGuide(prompt, imageBytes, new GeminiLLMService.ResponseCallback() {
+            @Override
+            public void onSuccess(String response) {
+                showLocationsLoading(false, "Select a location");
+                navigationProgressIndicator.setVisibility(android.view.View.GONE);
+                navigationStatusText.setText("Image analysis complete");
+                tourGuideResponseText.setVisibility(android.view.View.VISIBLE);
+                tourGuideResponseText.setText(response);
+
+                try {
+                    robot.speak(TtsRequest.create(response));
+                } catch (Exception e) {
+                    Toast.makeText(LocationSelectActivity.this,
+                            "Speak error: " + e.getMessage(),
+                            Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onError(String error) {
+                showLocationsLoading(false, "Select a location");
+                navigationProgressIndicator.setVisibility(android.view.View.GONE);
+                navigationStatusText.setText("Image analysis unavailable");
+                String fallback = "I couldn't analyze that image right now. Please try taking another picture.";
+                tourGuideResponseText.setVisibility(android.view.View.VISIBLE);
+                tourGuideResponseText.setText(fallback);
+                Toast.makeText(LocationSelectActivity.this, error, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private String buildCurrentLocationContext() {
+        StringBuilder context = new StringBuilder();
+        if (selectedMapName != null && !selectedMapName.trim().isEmpty()) {
+            context.append("Map: ").append(selectedMapName.trim()).append(". ");
+        }
+        if (lastKnownDisplayName != null && !lastKnownDisplayName.trim().isEmpty()) {
+            context.append("Nearest/last selected location: ").append(lastKnownDisplayName.trim()).append(". ");
+        }
+        if (lastKnownLocationData != null && lastKnownLocationData.description != null
+                && !lastKnownLocationData.description.trim().isEmpty()) {
+            context.append("Location description: ").append(lastKnownLocationData.description.trim()).append(". ");
+        }
+        if (context.length() == 0) {
+            return "Unknown exact POI within selected map";
+        }
+        return context.toString().trim();
     }
     
     /**
@@ -296,6 +451,9 @@ public class LocationSelectActivity extends AppCompatActivity implements OnGoToL
         pendingLocationName = locationName;
         pendingDisplayName = displayName;
         pendingLocationData = location;
+        lastKnownLocationName = locationName;
+        lastKnownDisplayName = displayName;
+        lastKnownLocationData = location;
         navigationProgressIndicator.setVisibility(android.view.View.VISIBLE);
         navigationStatusText.setText("Moving to " + displayName + "...");
         tourGuideResponseText.setVisibility(android.view.View.GONE);
@@ -317,6 +475,9 @@ public class LocationSelectActivity extends AppCompatActivity implements OnGoToL
         String arrivedLocationName = pendingLocationName;
         String arrivedDisplayName = pendingDisplayName;
         Location arrivedLocationData = pendingLocationData;
+        lastKnownLocationName = arrivedLocationName;
+        lastKnownDisplayName = arrivedDisplayName;
+        lastKnownLocationData = arrivedLocationData;
 
         navigationProgressIndicator.setVisibility(android.view.View.VISIBLE);
         navigationStatusText.setText("Arrived at " + arrivedDisplayName + ". Generating welcome message...");
