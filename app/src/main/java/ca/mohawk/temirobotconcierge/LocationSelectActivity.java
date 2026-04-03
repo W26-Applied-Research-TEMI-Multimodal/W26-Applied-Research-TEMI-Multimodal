@@ -22,6 +22,9 @@ import ca.mohawk.temirobotconcierge.llm.GeminiLLMService;
 import ca.mohawk.temirobotconcierge.poi.PoiLocator;
 
 import java.util.List;
+import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Activity for selecting a location to navigate to
@@ -34,7 +37,7 @@ import java.util.List;
  */
 public class LocationSelectActivity extends AppCompatActivity implements OnGoToLocationStatusChangedListener {
     private static final String TAG = "LocationSelectActivity";
-    private static final String DEMO_LOCATION_NAME = "engineering_wing_entrance";
+    private static final String DEMO_LOCATION_NAME = "e103";
     private static final long DEMO_ARRIVAL_DELAY_MS = 2500L;
     private Robot robot;
     private LocationProvider locationProvider;
@@ -49,6 +52,7 @@ public class LocationSelectActivity extends AppCompatActivity implements OnGoToL
     private PoiLocator poiLocator;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private boolean demoMode;
+    private String selectedMapId;
     private String selectedMapName;
     private String pendingLocationName;
     private String pendingDisplayName;
@@ -68,6 +72,7 @@ public class LocationSelectActivity extends AppCompatActivity implements OnGoToL
         navigationStatusText = findViewById(R.id.navigationStatusText);
         tourGuideResponseText = findViewById(R.id.tourGuideResponseText);
         demoMode = getIntent().getBooleanExtra(MainActivity.EXTRA_DEMO_MODE, false);
+        selectedMapId = getIntent().getStringExtra(MainActivity.EXTRA_SELECTED_MAP_ID);
         selectedMapName = getIntent().getStringExtra(MainActivity.EXTRA_SELECTED_MAP_NAME);
 
         if (selectedMapName != null && !selectedMapName.trim().isEmpty()) {
@@ -127,19 +132,29 @@ public class LocationSelectActivity extends AppCompatActivity implements OnGoToL
         }
         
         try {
-            // Get list of location names from current map
             List<String> locationNames = robot.getLocations();
-            
+            String inferredWing = inferEWingFromMap(selectedMapName, selectedMapId);
+
+            if (inferredWing != null) {
+                List<Location> configuredWingLocations = locationProvider.getLocationsByWing(inferredWing);
+                if (!configuredWingLocations.isEmpty()) {
+                    Log.d(TAG, "Using configured locations for " + inferredWing + ": " + configuredWingLocations.size());
+                    for (Location location : configuredWingLocations) {
+                        createLocationButton(location.temiLocationName);
+                    }
+                    showLocationsLoading(false, "Select a location");
+                    return;
+                }
+            }
+
             if (locationNames == null || locationNames.isEmpty()) {
-                Log.w(TAG, "No locations available. Make sure a map is loaded first.");
-                Toast.makeText(this, "No locations found. Switching to demo location.", Toast.LENGTH_SHORT).show();
-                loadDemoLocation();
+                Log.w(TAG, "No locations available for selected map.");
+                Toast.makeText(this, "No locations found for this map.", Toast.LENGTH_SHORT).show();
+                showLocationsLoading(false, "No locations available for this map");
                 return;
             }
-            
-            Log.d(TAG, "Found " + locationNames.size() + " locations");
-            
-            // Create a button for each location
+
+            Log.d(TAG, "Using " + locationNames.size() + " robot POIs from loaded map");
             for (String locationName : locationNames) {
                 createLocationButton(locationName);
                 Log.d(TAG, "Added button for location: " + locationName);
@@ -148,8 +163,8 @@ public class LocationSelectActivity extends AppCompatActivity implements OnGoToL
             
         } catch (Exception e) {
             Log.e(TAG, "Error loading locations: " + e.getMessage());
-            Toast.makeText(this, "Error loading locations. Using demo location.", Toast.LENGTH_SHORT).show();
-            loadDemoLocation();
+            Toast.makeText(this, "Error loading locations for this map.", Toast.LENGTH_SHORT).show();
+            showLocationsLoading(false, "Unable to load locations for this map");
         }
     }
 
@@ -157,6 +172,26 @@ public class LocationSelectActivity extends AppCompatActivity implements OnGoToL
         Log.d(TAG, "Loading hardcoded demo location");
         createLocationButton(DEMO_LOCATION_NAME);
         showLocationsLoading(false, "Demo location ready");
+    }
+
+    private String inferEWingFromMap(String mapName, String mapId) {
+        String source = ((mapName == null) ? "" : mapName) + " " + ((mapId == null) ? "" : mapId);
+        String normalized = source.trim().toLowerCase(Locale.US);
+
+        if (normalized.isEmpty()) {
+            return null;
+        }
+
+        if (normalized.contains("e wing") || normalized.contains("ewing") || normalized.contains("east wing")) {
+            return "E Wing";
+        }
+
+        Matcher matcher = Pattern.compile("\\be\\s*wing(?:\\s*\\d+)?\\b", Pattern.CASE_INSENSITIVE).matcher(source);
+        if (matcher.find()) {
+            return "E Wing";
+        }
+
+        return null;
     }
     
     /**
@@ -407,7 +442,7 @@ public class LocationSelectActivity extends AppCompatActivity implements OnGoToL
 
     private String buildArrivalTourResponse(String locationName, Location location, String displayName) {
         if (locationName != null && locationName.trim().equalsIgnoreCase(DEMO_LOCATION_NAME)) {
-            return "Welcome to the Engineering Building. This is one of the main hubs for robotics, software, and mechanical engineering work. Students use this space for hands-on projects, prototyping, and applied research across the North Wing.";
+            return "Welcome to the Engineering Building. This area supports applied learning, labs, and hands-on project work for students and visitors.";
         }
 
         return buildDemoTourResponse(location, displayName);

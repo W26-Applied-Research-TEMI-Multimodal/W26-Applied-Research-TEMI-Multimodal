@@ -84,14 +84,17 @@ public class MainActivity extends AppCompatActivity implements OnLoadMapStatusCh
      */
     private void loadMaps() {
         Log.d(TAG, "Loading maps");
+        mapsContainer.removeAllViews();
         
         try {
             // Get list of all available maps
             List<MapModel> mapList = robot.getMapList();
             
             if (mapList == null || mapList.isEmpty()) {
-                Log.w(TAG, "No maps available on robot. Demo map will be shown.");
-                Toast.makeText(this, "No maps found on robot. Demo map enabled.", Toast.LENGTH_SHORT).show();
+                Log.w(TAG, "No maps available on robot. Showing demo map option.");
+                Toast.makeText(this, "No maps found on robot. Demo map available.", Toast.LENGTH_SHORT).show();
+                createMapButton(DEMO_MAP_ID, DEMO_MAP_NAME, true);
+                return;
             } else {
                 Log.d(TAG, "Found " + mapList.size() + " maps");
 
@@ -102,13 +105,9 @@ public class MainActivity extends AppCompatActivity implements OnLoadMapStatusCh
                 }
             }
 
-            // Always include one hardcoded demo map so demo flow works without real mapping.
-            createMapButton(DEMO_MAP_ID, DEMO_MAP_NAME, true);
-            Log.d(TAG, "Added hardcoded demo map button");
-            
         } catch (Exception e) {
             Log.e(TAG, "Error loading maps: " + e.getMessage());
-            Toast.makeText(this, "Error loading maps: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Error loading maps. Demo map available.", Toast.LENGTH_SHORT).show();
             pendingMapId = null;
             enableAllButtons();
             createMapButton(DEMO_MAP_ID, DEMO_MAP_NAME, true);

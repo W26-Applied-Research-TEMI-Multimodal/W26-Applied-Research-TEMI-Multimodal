@@ -8,7 +8,11 @@ import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -74,8 +78,8 @@ public class LocationProvider {
                 // Create Location object
                 Location location = new Location(temiLocationName, displayName, description, wing);
                 
-                // Store in map with temiLocationName as key
-                locationMap.put(temiLocationName, location);
+                // Store by normalized key to avoid case mismatches.
+                locationMap.put(temiLocationName.toLowerCase(Locale.US), location);
                 
                 Log.d(TAG, "Loaded location: " + displayName + " (" + temiLocationName + ")");
             }
@@ -95,7 +99,12 @@ public class LocationProvider {
      * @return Location object, or null if not found
      */
     public Location getLocation(String temiLocationName) {
-        Location location = locationMap.get(temiLocationName);
+        if (temiLocationName == null) {
+            Log.w(TAG, "Location lookup called with null temiLocationName");
+            return null;
+        }
+
+        Location location = locationMap.get(temiLocationName.trim().toLowerCase(Locale.US));
         
         if (location == null) {
             Log.w(TAG, "Location not found: " + temiLocationName);
@@ -104,5 +113,30 @@ public class LocationProvider {
         }
         
         return location;
+    }
+
+    /**
+     * Get all locations configured in locations.json.
+     */
+    public List<Location> getAllLocations() {
+        return new ArrayList<>(locationMap.values());
+    }
+
+    /**
+     * Get all configured locations in a specific wing.
+     */
+    public List<Location> getLocationsByWing(String wing) {
+        if (wing == null || wing.trim().isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        String targetWing = wing.trim();
+        List<Location> result = new ArrayList<>();
+        for (Location location : locationMap.values()) {
+            if (location.wing != null && location.wing.trim().equalsIgnoreCase(targetWing)) {
+                result.add(location);
+            }
+        }
+        return result;
     }
 }
