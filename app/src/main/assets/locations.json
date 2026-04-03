@@ -5,6 +5,180 @@
       "displayName": "Engineering Building",
       "description": "Welcome to the Engineering Building! This is where students work on robotics, software, and mechanical engineering projects.",
       "wing": "North Wing"
+    },
+    {
+      "temiLocationName": "e103",
+      "displayName": "mHealth & eHealth Development and Innovation Centre",
+      "description": "mHealth & eHealth Development and Innovation Centre",
+      "wing": "E Wing"
+    },
+    {
+      "temiLocationName": "e103b",
+      "displayName": "mHealth & eHealth Development and Innovation Centre",
+      "description": "mHealth & eHealth Development and Innovation Centre (alternate entrance)",
+      "wing": "E Wing"
+    },
+    {
+      "temiLocationName": "e104",
+      "displayName": "AMRC",
+      "description": "AMRC (Additive Manufacturing Resource Centre)",
+      "wing": "E Wing"
+    },
+    {
+      "temiLocationName": "e104b",
+      "displayName": "AMRC",
+      "description": "AMRC (Additive Manufacturing Resource Centre) (alternate entrance)",
+      "wing": "E Wing"
+    },
+    {
+      "temiLocationName": "e105",
+      "displayName": "E105",
+      "description": "",
+      "wing": "E Wing"
+    },
+    {
+      "temiLocationName": "e107",
+      "displayName": "IDEAWORKS Main Office",
+      "description": "IDEAWORKS Main Office",
+      "wing": "E Wing"
+    },
+    {
+      "temiLocationName": "e108",
+      "displayName": "Additive Manufacturing Innovation Centre",
+      "description": "Additive Manufacturing Innovation Centre",
+      "wing": "E Wing"
+    },
+    {
+      "temiLocationName": "e109",
+      "displayName": "Materials Development & Characterization Lab",
+      "description": "Materials Development & Characterization Lab",
+      "wing": "E Wing"
+    },
+    {
+      "temiLocationName": "e109b",
+      "displayName": "Materials Development & Characterization Lab",
+      "description": "Materials Development & Characterization Lab (alternate entrance)",
+      "wing": "E Wing"
+    },
+    {
+      "temiLocationName": "e110",
+      "displayName": "Centre for Climate Change Management",
+      "description": "Centre for Climate Change Management",
+      "wing": "E Wing"
+    },
+    {
+      "temiLocationName": "e111",
+      "displayName": "Fanuc Robotics Lab",
+      "description": "Fanuc Robotics Lab",
+      "wing": "E Wing"
+    },
+    {
+      "temiLocationName": "e111b",
+      "displayName": "Fanuc Robotics Lab",
+      "description": "Fanuc Robotics Lab (alternate entrance)",
+      "wing": "E Wing"
+    },
+    {
+      "temiLocationName": "e112",
+      "displayName": "Specialty labs and rooms",
+      "description": "Specialty labs and rooms",
+      "wing": "E Wing"
+    },
+    {
+      "temiLocationName": "e113",
+      "displayName": "Siemens Mechatronics Lab",
+      "description": "Siemens Mechatronics Lab",
+      "wing": "E Wing"
+    },
+    {
+      "temiLocationName": "e113b",
+      "displayName": "Siemens Mechatronics Lab",
+      "description": "Siemens Mechatronics Lab (alternate entrance)",
+      "wing": "E Wing"
+    },
+    {
+      "temiLocationName": "e119",
+      "displayName": "Hardware labs",
+      "description": "Hardware labs",
+      "wing": "E Wing"
+    },
+    {
+      "temiLocationName": "e120",
+      "displayName": "Specialty labs and rooms",
+      "description": "Specialty labs and rooms",
+      "wing": "E Wing"
+    },
+    {
+      "temiLocationName": "e121",
+      "displayName": "Classrooms and smart rooms",
+      "description": "Classrooms and smart rooms",
+      "wing": "E Wing"
+    },
+    {
+      "temiLocationName": "e123",
+      "displayName": "Specialty labs and rooms",
+      "description": "Specialty labs and rooms",
+      "wing": "E Wing"
+    },
+    {
+      "temiLocationName": "e124",
+      "displayName": "Classrooms and smart rooms",
+      "description": "Classrooms and smart rooms",
+      "wing": "E Wing"
+    },
+    {
+      "temiLocationName": "e125",
+      "displayName": "Hardware labs",
+      "description": "Hardware labs",
+      "wing": "E Wing"
+    },
+    {
+      "temiLocationName": "e126",
+      "displayName": "Specialty labs and rooms",
+      "description": "Specialty labs and rooms",
+      "wing": "E Wing"
+    },
+    {
+      "temiLocationName": "washroom_f",
+      "displayName": "Womens washroom",
+      "description": "Womens washroom",
+      "wing": "E Wing"
+    },
+    {
+      "temiLocationName": "washroom_m",
+      "displayName": "Mens washroom",
+      "description": "Mens washroom",
+      "wing": "E Wing"
+    },
+    {
+      "temiLocationName": "washroom_a",
+      "displayName": "All gender accessible washroom",
+      "description": "All gender accessible washroom",
+      "wing": "E Wing"
+    },
+    {
+      "temiLocationName": "elevator_l",
+      "displayName": "Elevator in E Wing",
+      "description": "Elevator in E Wing",
+      "wing": "E Wing"
+    },
+    {
+      "temiLocationName": "stairwell_m",
+      "displayName": "Staircase",
+      "description": "Staircase",
+      "wing": "E Wing"
+    },
+    {
+      "temiLocationName": "entrance_ea",
+      "displayName": "Entrance to EA Wing",
+      "description": "Entrance to EA Wing",
+      "wing": "E Wing"
+    },
+    {
+      "temiLocationName": "eg",
+      "displayName": "Entrance to eg wing",
+      "description": "Entrance to eg wing",
+      "wing": "E Wing"
     }
   ]
 }
