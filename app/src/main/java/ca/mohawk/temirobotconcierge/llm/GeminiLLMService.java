@@ -1,5 +1,6 @@
 package ca.mohawk.temirobotconcierge.llm;
 
+import android.util.Base64;
 import android.util.Log;
 import ca.mohawk.temirobotconcierge.BuildConfig;
 import com.google.gson.JsonArray;
@@ -65,6 +66,30 @@ public class GeminiLLMService {
         }
 
         final String jsonRequest = buildRequestJson(prompt);
+        enqueueGeminiRequest(key, jsonRequest, callback);
+    }
+
+    /**
+     * Generate a multimodal response using text + captured image bytes.
+     */
+    public void generateVisionTourGuide(String prompt, byte[] imageJpegBytes, ResponseCallback callback) {
+        final String key = BuildConfig.GEMINI_API_KEY;
+
+        if (key == null || key.trim().isEmpty()) {
+            mainHandler.post(() -> callback.onError("Gemini API key not configured."));
+            return;
+        }
+
+        if (imageJpegBytes == null || imageJpegBytes.length == 0) {
+            mainHandler.post(() -> callback.onError("No image data to analyze."));
+            return;
+        }
+
+        final String jsonRequest = buildVisionRequestJson(prompt, imageJpegBytes);
+        enqueueGeminiRequest(key, jsonRequest, callback);
+    }
+
+    private void enqueueGeminiRequest(String key, String jsonRequest, ResponseCallback callback) {
 
         Request request = new Request.Builder()
                 .url(API_URL + "?key=" + key)
@@ -136,6 +161,30 @@ public class GeminiLLMService {
         contents.add(content);
         request.add("contents", contents);
         
+        return request.toString();
+    }
+
+    private String buildVisionRequestJson(String prompt, byte[] imageJpegBytes) {
+        JsonObject request = new JsonObject();
+        JsonArray contents = new JsonArray();
+        JsonObject content = new JsonObject();
+        JsonArray parts = new JsonArray();
+
+        JsonObject textPart = new JsonObject();
+        textPart.addProperty("text", prompt);
+        parts.add(textPart);
+
+        JsonObject imagePart = new JsonObject();
+        JsonObject inlineData = new JsonObject();
+        inlineData.addProperty("mime_type", "image/jpeg");
+        inlineData.addProperty("data", Base64.encodeToString(imageJpegBytes, Base64.NO_WRAP));
+        imagePart.add("inline_data", inlineData);
+        parts.add(imagePart);
+
+        content.add("parts", parts);
+        contents.add(content);
+        request.add("contents", contents);
+
         return request.toString();
     }
     
