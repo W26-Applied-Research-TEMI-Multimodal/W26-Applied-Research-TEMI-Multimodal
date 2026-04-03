@@ -30,10 +30,21 @@
 
         <TextView
             android:id="@+id/locationLoadStatus"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
             android:text="Select a location"
             android:layout_marginStart="10dp" />
+
+        <ImageButton
+            android:id="@+id/cameraButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Capture image"
+            android:padding="6dp"
+            android:src="@android:drawable/ic_menu_camera"
+            android:tint="#1B5E20" />
     </LinearLayout>
 
     <LinearLayout
